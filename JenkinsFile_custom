@@ -6,19 +6,17 @@ pipeline {
         REMOTE_USER = 'ec2-user'
         REMOTE_PATH = '/home/ec2-user/nodejs-app'
         SSH_CREDENTIALS = 'nodejs'
-        
     }
-    
+
     triggers {
-  githubPush()
-}
+        githubPush()  // triggers build on GitHub push
+    }
 
     tools {
         nodejs 'Nodejs20.19.3'  
     }
 
-    
-
+    stages {
         stage("Building Node.js App") {
             steps {
                 sh 'npm install'
