@@ -9,7 +9,7 @@ pipeline {
     }
 
     triggers {
-        githubPush()  // triggers build on GitHub push
+        githubPush()  // triggers build on GitHub push.
     }
 
     tools {
