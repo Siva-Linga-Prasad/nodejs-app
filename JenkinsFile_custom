@@ -1,0 +1,80 @@
+pipeline {
+    agent any
+
+    environment {
+        REMOTE_HOST = '35.174.170.88' 
+        REMOTE_USER = 'ec2-user'
+        REMOTE_PATH = '/home/ec2-user/nodejs-app'
+        SSH_CREDENTIALS = 'nodejs'
+        
+    }
+    
+    triggers {
+  githubPush()
+}
+
+    tools {
+        nodejs 'Nodejs20.19.3'  
+    }
+
+    
+
+        stage("Building Node.js App") {
+            steps {
+                sh 'npm install'
+            }
+        }
+
+        stage('Transfer to Remote Server') {
+            steps {
+                sshagent (credentials: [SSH_CREDENTIALS]) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST "mkdir -p $REMOTE_PATH"
+                        rsync -avz --exclude=node_modules --exclude=.git ./ $REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/
+                    '''
+                }
+            }
+        }
+
+        stage('Install & Deploy using Local PM2') {
+            steps {
+                sshagent (credentials: [SSH_CREDENTIALS]) {
+                    sh '''
+                        ssh $REMOTE_USER@$REMOTE_HOST "
+                            cd $REMOTE_PATH &&
+                            npm install &&
+                            npx pm2 start app.js --name my-app --update-env || npx pm2 restart my-app
+                        "
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            emailext(
+                subject: "SUCCESS: Build #${env.BUILD_NUMBER}",
+                body: """
+                    <p> Jenkins Job <b>${env.JOB_NAME}</b> build <b>#${env.BUILD_NUMBER}</b> completed successfully.</p>
+                    <p><b>Branch:</b> ${env.GIT_BRANCH}<br>
+                    <b>View Job:</b> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                """,
+                mimeType: 'text/html',
+                to: 'sivalingaprasad431@gmail.com'
+            )
+        }
+        failure {
+            emailext(
+                subject: "FAILURE: Build #${env.BUILD_NUMBER}",
+                body: """
+                    <p> Jenkins Job <b>${env.JOB_NAME}</b> build <b>#${env.BUILD_NUMBER}</b> has failed.</p>
+                    <p><b>Branch:</b> ${env.GIT_BRANCH}<br>
+                    <b>View Job:</b> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                """,
+                mimeType: 'text/html',
+                to: 'sivalingaprasad431@gmail.com'
+            )
+        }
+    }
+}
